@@ -1,0 +1,6 @@
+{
+  "name": "seashop-pwa-tests",
+  "private": true,
+  "type": "module",
+  "devDependencies": { "fake-indexeddb": "^6" }
+}

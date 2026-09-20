@@ -1,0 +1,600 @@
+/* SeaShop PWA — дизайн-система: светлая/тёмная тема, стеклянные карточки,
+   таб-бар снизу, в духе нативного приложения (см. Support/GlassStyle.swift). */
+
+:root {
+  color-scheme: light dark;
+  --accent: #0a84ff;
+  --accent-rgb: 10, 132, 255;
+  --danger: #ff3b30;
+  --success: #34c759;
+  --warning: #ff9500;
+
+  --bg-top: #eef4fb;
+  --bg-bottom: #dbe7f5;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-solid: #ffffff;
+  --surface-border: rgba(15, 40, 70, 0.08);
+  --text: #0b1c2c;
+  --text-secondary: rgba(11, 28, 44, 0.58);
+  --text-tertiary: rgba(11, 28, 44, 0.38);
+  --divider: rgba(15, 40, 70, 0.10);
+  --tabbar-bg: rgba(246, 249, 253, 0.86);
+  --shadow: 0 10px 30px rgba(15, 40, 70, 0.08);
+  --overlay-bg: rgba(10, 20, 35, 0.35);
+
+  /* Новый фирменный жёлтый app-bar (по референсу от пользователя) —
+     сознательно НЕ переопределяется под тёмную тему, как и положено
+     брендовому цвету шапки: тёмная тема меняет только фон/карточки ниже. */
+  --brand: #f3c53a;
+  --brand-rgb: 243, 197, 58;
+  --brand-ink: #1c1c1e;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-top: #0b1420;
+    --bg-bottom: #060c14;
+    --surface: rgba(28, 38, 52, 0.66);
+    --surface-solid: #161f2b;
+    --surface-border: rgba(255, 255, 255, 0.08);
+    --text: #f2f6fb;
+    --text-secondary: rgba(242, 246, 251, 0.62);
+    --text-tertiary: rgba(242, 246, 251, 0.40);
+    --divider: rgba(255, 255, 255, 0.09);
+    --tabbar-bg: rgba(18, 26, 38, 0.86);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --overlay-bg: rgba(0, 0, 0, 0.5);
+  }
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+/* Отключаем жест «двойной тап — зум»: даже при user-scalable=no/maximum-scale=1
+   в мета-viewport WebKit на iOS всё равно запускает распознаватель этого жеста,
+   пытается выполнить zoom-но-op (масштаб и так ограничен единицей) и после
+   этого может «залипнуть» хит-тестинг тапов по всей странице — это и есть
+   баг с недоступными кнопками после двойного тапа. touch-action: manipulation
+   отключает именно двойной тап на масштабирование (обычный скролл продолжает
+   работать) на уровне браузера, а не через viewport-мета. */
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-bottom);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+}
+body {
+  background: radial-gradient(120% 90% at 50% -10%, var(--bg-top), var(--bg-bottom) 65%);
+  min-height: 100%;
+}
+h1, h2, h3, p { margin: 0; }
+button {
+  font: inherit;
+  touch-action: manipulation;
+  /* Кнопки не должны запускать нативное выделение текста/лупу или
+     контекстное меню ("Копировать"/"Поделиться") по долгому тапу —
+     они ведут себя как элементы интерфейса, а не как текст. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, select { font: inherit; color: inherit; }
+
+#app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.screen {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Раньше здесь резервировалось место под нижний таб-бар (84px) — он убран
+     (см. app.js), навигация теперь через гамбургер-меню в шапке. */
+  padding: calc(var(--safe-top) + 14px) 16px calc(20px + var(--safe-bottom)) 16px;
+  scroll-behavior: smooth;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.topbar h1 { font-size: 28px; font-weight: 750; letter-spacing: -0.02em; }
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.icon svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: none;
+  background: var(--surface);
+  color: var(--accent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  cursor: pointer;
+}
+.icon-btn:active { opacity: 0.6; }
+
+/* ---- Новый фирменный app-bar (жёлтая шапка: гамбургер / заголовок / …) ---- */
+.icon-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.icon-btn-ghost:active { background: rgba(0, 0, 0, 0.08); }
+.icon-btn-ghost.small { width: 28px; height: 28px; border-radius: 8px; }
+.icon-btn-ghost.small svg { width: 17px; height: 17px; }
+
+.appbar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  padding: calc(var(--safe-top) + 10px) 8px 12px;
+  margin: calc(-1 * (var(--safe-top) + 14px)) -16px 18px;
+}
+.appbar-brand h1 { font-size: 19px; font-weight: 800; color: var(--brand-ink); }
+
+/* ---- Горизонтальный ряд быстрых переходов (иконка + подпись) ---- */
+.quick-nav {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 2px 2px 20px;
+  margin: 0 -2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.quick-nav::-webkit-scrollbar { display: none; }
+.quick-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  width: 72px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  padding: 2px 0;
+}
+.quick-nav-item .badge-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--accent-rgb), 0.13);
+  color: var(--accent);
+}
+.quick-nav-item .badge-icon svg { width: 23px; height: 23px; }
+.quick-nav-item span { font-size: 12px; font-weight: 700; text-align: center; line-height: 1.2; }
+
+/* ---- Секция с серым заголовком и карандашом (по референсу) ---- */
+.section-v2 {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+  margin-bottom: 18px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+}
+.section-v2-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 8px 9px 14px;
+  background: var(--divider);
+}
+.section-v2-head .title {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.section-v2-body .row .icon { color: var(--text-tertiary); }
+
+/* ---- Боковое меню-шторка (гамбургер) ---- */
+.drawer-overlay {
+  position: fixed; inset: 0;
+  background: var(--overlay-bg);
+  z-index: 70;
+  display: flex;
+  animation: fadeIn 0.18s ease-out;
+}
+.drawer-panel {
+  width: 78%;
+  max-width: 300px;
+  height: 100%;
+  background: var(--bg-bottom);
+  box-shadow: 8px 0 30px rgba(0, 0, 0, 0.25);
+  padding: calc(var(--safe-top) + 18px) 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: slideInLeft 0.22s cubic-bezier(.32,.72,0,1);
+}
+@keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px;
+  border-radius: 12px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+.drawer-item:active { background: rgba(var(--accent-rgb), 0.1); }
+.drawer-item.active { background: rgba(var(--accent-rgb), 0.12); color: var(--accent); }
+.drawer-item svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* ---- Таб-бар ---- */
+.tabbar {
+  position: relative;
+  display: flex;
+  padding-bottom: var(--safe-bottom);
+  background: var(--tabbar-bg);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-top: 1px solid var(--surface-border);
+  /* Держим таб-бар в собственном compositing-слое — без этого WebKit в
+     standalone-режиме иногда «замораживает» хит-тестинг position:fixed
+     родителя (#app) с backdrop-filter внутри после сворачивания приложения. */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  z-index: 5;
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 2px 6px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.tab svg { width: 24px; height: 24px; }
+.tab span { font-size: 10.5px; font-weight: 600; }
+.tab.active { color: var(--accent); }
+
+/* ---- Карточки/секции ---- */
+.section {
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin: 0 4px 8px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  min-height: 24px;
+}
+.row + .row { border-top: 1px solid var(--divider); }
+.row-link { cursor: pointer; }
+.row-link:active { background: rgba(var(--accent-rgb), 0.08); }
+.row .label { color: var(--text); }
+.row .sub { color: var(--text-secondary); font-size: 13px; }
+.spacer { flex: 1; }
+.divider { height: 1px; background: var(--divider); margin: 0 16px; }
+.chevron { color: var(--text-tertiary); flex-shrink: 0; }
+
+.card-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: none;
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.card-btn:active { opacity: 0.75; }
+.card-btn .icon-badge {
+  width: 44px; height: 44px; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--accent-rgb), 0.14); color: var(--accent); flex-shrink: 0;
+}
+.card-btn .icon-badge svg { width: 22px; height: 22px; }
+.card-btn strong { font-size: 16px; }
+.card-btn .sub { color: var(--text-secondary); font-size: 13px; margin-top: 2px; }
+
+/* ---- Текст/утилиты ---- */
+.muted { color: var(--text-secondary); }
+.tiny { font-size: 12px; }
+.bold { font-weight: 700; }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-secondary);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.badge.new { background: rgba(10, 132, 255, 0.14); color: var(--accent); }
+.badge.pendingPayment { background: rgba(255, 149, 0, 0.16); color: var(--warning); }
+.badge.completed { background: rgba(52, 199, 89, 0.16); color: var(--success); }
+.badge.out { background: rgba(255, 59, 48, 0.14); color: var(--danger); }
+.badge.low { background: rgba(255, 149, 0, 0.16); color: var(--warning); }
+.badge.inStock { background: rgba(52, 199, 89, 0.14); color: var(--success); }
+
+/* ---- Формы ---- */
+.field-input, .field-select, .field-textarea {
+  border: none;
+  background: transparent;
+  text-align: right;
+  color: var(--text);
+  min-width: 0;
+}
+.field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; }
+.field-textarea { text-align: left; width: 100%; resize: vertical; min-height: 60px; }
+.field-full { width: 100%; text-align: left; }
+input[type="text"].field-full, input[type="tel"].field-full { text-align: left; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: 14px;
+  padding: 13px 18px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  width: 100%;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:disabled { opacity: 0.4; }
+.btn-secondary { background: var(--surface); color: var(--accent); border: 1px solid var(--surface-border); }
+.btn-danger { background: rgba(255, 59, 48, 0.12); color: var(--danger); }
+.btn-text { background: none; color: var(--accent); font-weight: 700; padding: 6px 4px; width: auto; }
+.btn:active { opacity: 0.7; }
+
+/* ---- Модалки / шиты ---- */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: var(--overlay-bg);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn 0.18s ease-out;
+}
+.modal-sheet {
+  width: 100%;
+  max-height: 92vh;
+  background: var(--bg-bottom);
+  border-radius: 22px 22px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.22s cubic-bezier(.32,.72,0,1);
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px calc(10px + var(--safe-top) * 0);
+  padding-top: 14px;
+  border-bottom: 1px solid var(--divider);
+  flex-shrink: 0;
+}
+.modal-header h2 { font-size: 17px; font-weight: 700; }
+.modal-body { overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(24px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
+
+/* ---- Калькулятор (числовая клавиатура для количества/цены/веса) ---- */
+.calc-field {
+  width: 100%;
+  text-align: right;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  caret-color: transparent;
+  /* Поле только для отображения значения — открытие клавиатуры вызывает
+     openCalculatorPad(). Несмотря на readonly, iOS всё равно позволяет
+     выделять в нём текст (лупа + маркеры выделения), что перехватывает
+     жесты и сбивает попадание по цифрам калькулятора ниже. Отключаем
+     выделение и системное меню полностью — это не текстовое поле по сути. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  display: block;
+}
+.calc-field-empty { color: var(--text-tertiary); }
+.calc-pad-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: flex-end;
+  background: transparent;
+}
+.calc-pad {
+  width: 100%;
+  background: var(--tabbar-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid var(--surface-border);
+  padding: 10px 10px calc(10px + var(--safe-bottom));
+  box-shadow: 0 -6px 24px rgba(0,0,0,0.18);
+}
+.calc-pad-label { text-align: center; font-size: 13px; color: var(--text-secondary); padding: 4px 0 8px; }
+.calc-pad-display {
+  text-align: center;
+  font-size: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  padding: 2px 8px 14px;
+  min-height: 42px;
+  line-height: 1.1;
+  word-break: break-all;
+}
+.calc-pad-display-empty { color: var(--text-tertiary); }
+.calc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.calc-key {
+  padding: 16px 0;
+  border-radius: 12px;
+  border: none;
+  background: var(--surface-solid);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 600;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.calc-key:active { background: var(--divider); }
+.calc-key.wide { grid-column: span 1; background: var(--accent); color: #fff; }
+.calc-key.func { background: transparent; color: var(--accent); font-size: 15px; font-weight: 700; }
+
+/* ---- Плавающая кнопка "+" ---- */
+.fab {
+  position: fixed;
+  right: calc(20px);
+  /* Раньше отступ учитывал нижний таб-бар (84px) — он убран. */
+  bottom: calc(20px + var(--safe-bottom));
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  box-shadow: 0 8px 20px rgba(var(--accent-rgb), 0.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 20;
+  cursor: pointer;
+}
+.fab svg { width: 26px; height: 26px; }
+
+/* ---- Поиск ---- */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  color: var(--text-secondary);
+}
+.search-bar input {
+  border: none; background: none; flex: 1; color: var(--text);
+}
+.search-bar input:focus { outline: none; }
+.search-bar svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+.segmented {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 14px;
+  gap: 3px;
+}
+.segmented button {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 8px 4px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.segmented button.active { background: var(--surface-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(100px + var(--safe-bottom));
+  transform: translateX(-50%);
+  background: rgba(20, 24, 32, 0.92);
+  color: #fff;
+  padding: 11px 18px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.list-actions { display: flex; gap: 10px; margin-top: 14px; }
+.list-actions .btn { flex: 1; }
+
+::-webkit-scrollbar { width: 0; height: 0; }
